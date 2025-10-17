@@ -36,33 +36,90 @@ export function RiskMeter({ score, riskLevel }: RiskMeterProps) {
     { min: 300, max: 419, label: "Very High Risk", emoji: "🔴", color: "text-red-600 dark:text-red-500" },
   ];
 
+  // Calculate needle angle (0-180 degrees for semi-circle)
+  const needleAngle = (percentage / 100) * 180;
+
   return (
     <div className="space-y-6">
-      {/* Main Score Display */}
-      <div className="text-center space-y-2">
-        <div className={cn("text-6xl font-bold", getColorClass())}>
-          {score}
-        </div>
-        <div className="text-lg font-semibold text-muted-foreground">
-          Credit Risk Score
-        </div>
-        <div className={cn("text-2xl font-bold", getColorClass())}>
-          {riskLevel}
-        </div>
-      </div>
-
-      {/* Visual Meter */}
-      <div className="space-y-2">
-        <div className="relative h-6 w-full overflow-hidden rounded-full bg-secondary">
-          <div 
-            className={cn("absolute top-0 left-0 h-6 rounded-full transition-all", getBarColor())}
-            style={{ width: `${percentage}%` }}
+      {/* Semi-circular Gauge Meter */}
+      <div className="relative w-full max-w-md mx-auto">
+        <svg viewBox="0 0 200 120" className="w-full h-auto">
+          {/* Background arcs for each risk level */}
+          {/* Very High Risk - Red (300-419) */}
+          <path
+            d="M 20 100 A 80 80 0 0 1 46.1 34.1"
+            fill="none"
+            stroke="hsl(0 84.2% 60.2%)"
+            strokeWidth="20"
+            strokeLinecap="round"
           />
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>300</span>
-          <span>600</span>
-          <span>900</span>
+          {/* High Risk - Orange (420-539) */}
+          <path
+            d="M 46.1 34.1 A 80 80 0 0 1 82 14"
+            fill="none"
+            stroke="hsl(25 95% 53%)"
+            strokeWidth="20"
+            strokeLinecap="round"
+          />
+          {/* Medium Risk - Yellow (540-659) */}
+          <path
+            d="M 82 14 A 80 80 0 0 1 118 14"
+            fill="none"
+            stroke="hsl(48 96% 53%)"
+            strokeWidth="20"
+            strokeLinecap="round"
+          />
+          {/* Low Risk - Lime (660-759) */}
+          <path
+            d="M 118 14 A 80 80 0 0 1 153.9 34.1"
+            fill="none"
+            stroke="hsl(84 81% 44%)"
+            strokeWidth="20"
+            strokeLinecap="round"
+          />
+          {/* Very Low Risk - Green (760-900) */}
+          <path
+            d="M 153.9 34.1 A 80 80 0 0 1 180 100"
+            fill="none"
+            stroke="hsl(142 76% 36%)"
+            strokeWidth="20"
+            strokeLinecap="round"
+          />
+          
+          {/* Center circle */}
+          <circle cx="100" cy="100" r="12" fill="hsl(var(--background))" stroke="hsl(var(--border))" strokeWidth="2" />
+          
+          {/* Needle */}
+          <g transform={`rotate(${needleAngle - 90} 100 100)`}>
+            <line
+              x1="100"
+              y1="100"
+              x2="100"
+              y2="35"
+              stroke="hsl(var(--foreground))"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            <circle cx="100" cy="100" r="6" fill="hsl(var(--foreground))" />
+          </g>
+          
+          {/* Labels */}
+          <text x="30" y="110" className="text-xs fill-muted-foreground" fontSize="10" textAnchor="middle">300</text>
+          <text x="100" y="20" className="text-xs fill-muted-foreground" fontSize="10" textAnchor="middle">600</text>
+          <text x="170" y="110" className="text-xs fill-muted-foreground" fontSize="10" textAnchor="middle">900</text>
+        </svg>
+        
+        {/* Score Display */}
+        <div className="text-center mt-4">
+          <div className={cn("text-5xl font-bold", getColorClass())}>
+            {score}
+          </div>
+          <div className="text-sm font-semibold text-muted-foreground mt-1">
+            Credit Risk Score
+          </div>
+          <div className={cn("text-xl font-bold mt-2", getColorClass())}>
+            {riskLevel}
+          </div>
         </div>
       </div>
 
