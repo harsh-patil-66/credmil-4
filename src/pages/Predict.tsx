@@ -279,11 +279,14 @@ export default function Predict() {
         )}
 
         {!prediction && (
-          <Card className="p-12 flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <p className="text-lg mb-2">No prediction yet</p>
-              <p className="text-sm">Fill in the form and click "Generate Prediction"</p>
+          <Card className="p-6">
+            <div className="mb-4 text-center">
+              <h2 className="text-xl font-semibold mb-2">Risk Meter Preview</h2>
+              <p className="text-sm text-muted-foreground">
+                This is how your risk assessment will be displayed
+              </p>
             </div>
+            <RiskMeter score={650} riskLevel="Low Risk" />
           </Card>
         )}
       </div>
