@@ -21,9 +21,14 @@ import { TrendingUp, Award, Target, Zap } from "lucide-react";
 
 export default function Evaluation() {
   const modelMetrics = [
-    { model: "LightGBM", auc: 0.89, precision: 0.84, recall: 0.87, f1: 0.855, brierScore: 0.12 },
-    { model: "XGBoost", auc: 0.88, precision: 0.83, recall: 0.86, f1: 0.845, brierScore: 0.13 },
-    { model: "Logistic Regression", auc: 0.82, precision: 0.78, recall: 0.81, f1: 0.795, brierScore: 0.18 },
+    { model: "XGBoost", mae: 0.0910, mse: 0.0434, r2: 0.9551 },
+    { model: "GradientBoosting", mae: 0.1019, mse: 0.0461, r2: 0.9523 },
+    { model: "RandomForest", mae: 0.1213, mse: 0.0551, r2: 0.9430 },
+    { model: "SVR", mae: 0.1224, mse: 0.0548, r2: 0.9432 },
+    { model: "LinearRegression", mae: 0.1789, mse: 0.0783, r2: 0.9189 },
+    { model: "Ridge", mae: 0.1788, mse: 0.0783, r2: 0.9189 },
+    { model: "DecisionTree", mae: 0.2002, mse: 0.1369, r2: 0.8582 },
+    { model: "Lasso", mae: 0.7952, mse: 0.9660, r2: -0.0006 },
   ];
 
   const rocData = [
@@ -41,35 +46,34 @@ export default function Evaluation() {
   ];
 
   const radarData = [
-    { metric: "AUC", LightGBM: 0.89, XGBoost: 0.88, LogReg: 0.82 },
-    { metric: "Precision", LightGBM: 0.84, XGBoost: 0.83, LogReg: 0.78 },
-    { metric: "Recall", LightGBM: 0.87, XGBoost: 0.86, LogReg: 0.81 },
-    { metric: "F1-Score", LightGBM: 0.855, XGBoost: 0.845, LogReg: 0.795 },
+    { metric: "R²", XGBoost: 0.9551, GradientBoosting: 0.9523, RandomForest: 0.9430, SVR: 0.9432 },
+    { metric: "MAE (inv)", XGBoost: 1-0.0910, GradientBoosting: 1-0.1019, RandomForest: 1-0.1213, SVR: 1-0.1224 },
+    { metric: "MSE (inv)", XGBoost: 1-0.0434, GradientBoosting: 1-0.0461, RandomForest: 1-0.0551, SVR: 1-0.0548 },
   ];
 
   const highlights = [
     {
       icon: Award,
       label: "Best Model",
-      value: "LightGBM",
+      value: "XGBoost",
       color: "text-green-500",
     },
     {
       icon: Target,
-      label: "Best AUC",
-      value: "0.89",
+      label: "Best R²",
+      value: "0.9551",
       color: "text-primary",
     },
     {
       icon: TrendingUp,
-      label: "Avg F1-Score",
-      value: "0.832",
+      label: "Best MAE",
+      value: "0.0910",
       color: "text-accent",
     },
     {
       icon: Zap,
-      label: "Training Time",
-      value: "12.3s",
+      label: "Best MSE",
+      value: "0.0434",
       color: "text-amber-500",
     },
   ];
@@ -108,11 +112,9 @@ export default function Evaluation() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left py-3 px-4 font-semibold">Model</th>
-                <th className="text-left py-3 px-4 font-semibold">AUC</th>
-                <th className="text-left py-3 px-4 font-semibold">Precision</th>
-                <th className="text-left py-3 px-4 font-semibold">Recall</th>
-                <th className="text-left py-3 px-4 font-semibold">F1-Score</th>
-                <th className="text-left py-3 px-4 font-semibold">Brier Score</th>
+                <th className="text-left py-3 px-4 font-semibold">MAE</th>
+                <th className="text-left py-3 px-4 font-semibold">MSE</th>
+                <th className="text-left py-3 px-4 font-semibold">R²</th>
               </tr>
             </thead>
             <tbody>
@@ -124,11 +126,9 @@ export default function Evaluation() {
                       <Badge className="ml-2" variant="default">Best</Badge>
                     )}
                   </td>
-                  <td className="py-3 px-4">{model.auc.toFixed(3)}</td>
-                  <td className="py-3 px-4">{model.precision.toFixed(3)}</td>
-                  <td className="py-3 px-4">{model.recall.toFixed(3)}</td>
-                  <td className="py-3 px-4">{model.f1.toFixed(3)}</td>
-                  <td className="py-3 px-4">{model.brierScore.toFixed(3)}</td>
+                  <td className="py-3 px-4">{model.mae.toFixed(4)}</td>
+                  <td className="py-3 px-4">{model.mse.toFixed(4)}</td>
+                  <td className="py-3 px-4">{model.r2.toFixed(4)}</td>
                 </tr>
               ))}
             </tbody>
@@ -137,21 +137,14 @@ export default function Evaluation() {
       </Card>
 
       <div className="grid gap-8 md:grid-cols-2">
-        {/* ROC Curve */}
+        {/* R² Score Comparison */}
         <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">ROC Curve</h2>
+          <h2 className="text-xl font-semibold mb-4">R² Score by Model</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={rocData}>
+            <BarChart data={modelMetrics} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis 
-                dataKey="fpr" 
-                label={{ value: "False Positive Rate", position: "insideBottom", offset: -5 }}
-                className="text-xs"
-              />
-              <YAxis 
-                label={{ value: "True Positive Rate", angle: -90, position: "insideLeft" }}
-                className="text-xs"
-              />
+              <XAxis type="number" domain={[-0.1, 1]} className="text-xs" />
+              <YAxis type="category" dataKey="model" className="text-xs" width={120} />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: "hsl(var(--background))", 
@@ -160,34 +153,19 @@ export default function Evaluation() {
                 }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="tpr" 
-                stroke="hsl(var(--primary))" 
-                strokeWidth={2}
-                name="LightGBM (AUC = 0.89)"
-                dot={false}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="fpr" 
-                stroke="hsl(var(--muted-foreground))" 
-                strokeDasharray="5 5"
-                name="Random Classifier"
-                dot={false}
-              />
-            </LineChart>
+              <Bar dataKey="r2" fill="hsl(var(--chart-1))" name="R² Score" />
+            </BarChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* Bar Chart Comparison */}
+        {/* Error Metrics Comparison */}
         <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Metric Comparison</h2>
+          <h2 className="text-xl font-semibold mb-4">Error Metrics (MAE & MSE)</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={modelMetrics}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="model" className="text-xs" />
-              <YAxis className="text-xs" domain={[0, 1]} />
+              <XAxis dataKey="model" className="text-xs" angle={-45} textAnchor="end" height={100} />
+              <YAxis className="text-xs" />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: "hsl(var(--background))", 
@@ -196,40 +174,46 @@ export default function Evaluation() {
                 }}
               />
               <Legend />
-              <Bar dataKey="auc" fill="hsl(var(--chart-1))" name="AUC" />
-              <Bar dataKey="f1" fill="hsl(var(--chart-2))" name="F1-Score" />
-              <Bar dataKey="recall" fill="hsl(var(--chart-3))" name="Recall" />
+              <Bar dataKey="mae" fill="hsl(var(--chart-2))" name="MAE" />
+              <Bar dataKey="mse" fill="hsl(var(--chart-3))" name="MSE" />
             </BarChart>
           </ResponsiveContainer>
         </Card>
 
         {/* Radar Chart */}
         <Card className="p-6 md:col-span-2">
-          <h2 className="text-xl font-semibold mb-4">Multi-Model Performance Radar</h2>
+          <h2 className="text-xl font-semibold mb-4">Top 4 Models Performance Radar</h2>
           <ResponsiveContainer width="100%" height={400}>
             <RadarChart data={radarData}>
               <PolarGrid className="stroke-border" />
               <PolarAngleAxis dataKey="metric" className="text-sm" />
               <PolarRadiusAxis angle={90} domain={[0, 1]} className="text-xs" />
               <Radar 
-                name="LightGBM" 
-                dataKey="LightGBM" 
+                name="XGBoost" 
+                dataKey="XGBoost" 
                 stroke="hsl(var(--chart-1))" 
                 fill="hsl(var(--chart-1))" 
                 fillOpacity={0.3} 
               />
               <Radar 
-                name="XGBoost" 
-                dataKey="XGBoost" 
+                name="GradientBoosting" 
+                dataKey="GradientBoosting" 
                 stroke="hsl(var(--chart-2))" 
                 fill="hsl(var(--chart-2))" 
                 fillOpacity={0.3} 
               />
               <Radar 
-                name="Logistic Regression" 
-                dataKey="LogReg" 
+                name="RandomForest" 
+                dataKey="RandomForest" 
                 stroke="hsl(var(--chart-3))" 
                 fill="hsl(var(--chart-3))" 
+                fillOpacity={0.3} 
+              />
+              <Radar 
+                name="SVR" 
+                dataKey="SVR" 
+                stroke="hsl(var(--chart-4))" 
+                fill="hsl(var(--chart-4))" 
                 fillOpacity={0.3} 
               />
               <Legend />
