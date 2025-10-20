@@ -1,295 +1,364 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
 import { RiskMeter } from "@/components/RiskMeter";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import { TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { StepIndicator } from "@/components/predict/StepIndicator";
+import { Step1Personal } from "@/components/predict/Step1Personal";
+import { Step2Financial } from "@/components/predict/Step2Financial";
+import { Step3CreditHistory } from "@/components/predict/Step3CreditHistory";
+import { Step4LoanDetails } from "@/components/predict/Step4LoanDetails";
+import { Step5Behavioral } from "@/components/predict/Step5Behavioral";
+import { SummaryStep } from "@/components/predict/SummaryStep";
+import { Loader2 } from "lucide-react";
 
-export default function Predict() {
+const Predict = () => {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [prediction, setPrediction] = useState<any>(null);
-
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    income: "65000",
-    debtRatio: "0.35",
-    creditScore: "720",
-    age: "35",
-    employmentLength: "5",
-    creditLines: "3",
-    recentInquiries: "1",
+    // Step 1: Personal & Residential
+    age: '',
+    employment_status: '',
+    employment_duration: '',
+    housing_status: '',
+    years_at_residence: '',
+    city_region: '',
+    
+    // Step 2: Financial
+    annual_income: '',
+    total_debt: '',
+    credit_score: '',
+    credit_history_length: '',
+    number_of_existing_loans: '',
+    total_credit_limit: '',
+    savings_account_balance: '',
+    checking_account_balance: '',
+    total_assets: '',
+    number_of_open_credit_lines: '',
+    
+    // Step 3: Credit History
+    number_of_late_payments: '',
+    worst_delinquency_status: '',
+    months_since_last_delinquency: '',
+    number_of_credit_inquiries: '',
+    number_of_derogatory_records: '',
+    bankruptcy_flag: false,
+    time_since_bankruptcy: '',
+    credit_mix: '',
+    
+    // Step 4: Loan Details
+    loan_amount_requested: '',
+    loan_term: '',
+    loan_purpose: '',
+    collateral_type: '',
+    collateral_value: '',
+    transaction_amount: '',
+    transaction_frequency: '',
+    time_since_last_transaction: '',
+    
+    // Step 5: Behavioral
+    average_pd: '',
+    average_lgd: '',
+    average_rwa: '',
+  });
+  
+  const [derivedMetrics, setDerivedMetrics] = useState({
+    monthly_income: 0,
+    debt_to_income_ratio: 0,
+    loan_to_income_ratio: 0,
+    payment_to_income_ratio: 0,
+    net_worth: 0,
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+  const [prediction, setPrediction] = useState<any>(null);
+
+  const stepLabels = [
+    "Personal",
+    "Financial", 
+    "Credit",
+    "Loan",
+    "Behavioral"
+  ];
+
+  useEffect(() => {
+    const annualIncome = Number(formData.annual_income) || 0;
+    const totalDebt = Number(formData.total_debt) || 0;
+    const loanAmount = Number(formData.loan_amount_requested) || 0;
+    const loanTerm = Number(formData.loan_term) || 1;
+    const totalAssets = Number(formData.total_assets) || 0;
+
+    const monthlyIncome = annualIncome / 12;
+    const estimatedMonthlyPayment = loanTerm > 0 ? loanAmount / loanTerm : 0;
+
+    setDerivedMetrics({
+      monthly_income: monthlyIncome,
+      debt_to_income_ratio: monthlyIncome > 0 ? totalDebt / monthlyIncome : 0,
+      loan_to_income_ratio: annualIncome > 0 ? loanAmount / annualIncome : 0,
+      payment_to_income_ratio: monthlyIncome > 0 ? estimatedMonthlyPayment / monthlyIncome : 0,
+      net_worth: totalAssets - totalDebt,
     });
+  }, [formData.annual_income, formData.total_debt, formData.loan_amount_requested, formData.loan_term, formData.total_assets]);
+
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePredict = async () => {
-    setLoading(true);
+  const validateStep = (step: number): boolean => {
+    const requiredFields: { [key: number]: string[] } = {
+      1: ['age', 'employment_status', 'employment_duration', 'housing_status', 'years_at_residence', 'city_region'],
+      2: ['annual_income', 'total_debt', 'credit_score', 'credit_history_length', 'number_of_existing_loans', 
+          'total_credit_limit', 'savings_account_balance', 'checking_account_balance', 'total_assets', 'number_of_open_credit_lines'],
+      3: ['number_of_late_payments', 'worst_delinquency_status', 'months_since_last_delinquency', 
+          'number_of_credit_inquiries', 'number_of_derogatory_records', 'credit_mix'],
+      4: ['loan_amount_requested', 'loan_term', 'loan_purpose', 'collateral_type', 'collateral_value',
+          'transaction_amount', 'transaction_frequency', 'time_since_last_transaction'],
+      5: ['average_pd', 'average_lgd', 'average_rwa'],
+    };
 
+    const fields = requiredFields[step] || [];
+    const missingFields = fields.filter(field => {
+      const value = formData[field as keyof typeof formData];
+      return value === '' || value === null || value === undefined;
+    });
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all required fields before proceeding.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Additional validation for bankruptcy
+    if (step === 3 && formData.bankruptcy_flag && !formData.time_since_bankruptcy) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter time since bankruptcy.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, 6));
+    }
+  };
+
+  const handleBack = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        ...derivedMetrics,
+      };
+
       const { data, error } = await supabase.functions.invoke('credit-predict', {
-        body: { applicantData: formData }
+        body: payload
       });
 
       if (error) throw error;
 
       setPrediction(data);
+      setCurrentStep(7); // Move to results view
       toast({
-        title: "Prediction Complete",
-        description: `Risk Level: ${data.riskLevel} | Model: ${data.modelInfo.name}`,
+        title: "✅ Assessment Complete",
+        description: "Your credit profile has been successfully submitted for assessment.",
       });
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Prediction error:', error);
       toast({
-        title: "Prediction Failed",
-        description: error.message || "Failed to generate prediction",
+        title: "Error",
+        description: "Failed to generate prediction. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return <Step1Personal formData={formData} onChange={handleChange} />;
+      case 2:
+        return <Step2Financial formData={formData} onChange={handleChange} />;
+      case 3:
+        return <Step3CreditHistory formData={formData} onChange={handleChange} />;
+      case 4:
+        return <Step4LoanDetails formData={formData} onChange={handleChange} />;
+      case 5:
+        return <Step5Behavioral formData={formData} onChange={handleChange} />;
+      case 6:
+        return <SummaryStep formData={formData} derivedMetrics={derivedMetrics} />;
+      case 7:
+        return null; // Results view
+      default:
+        return null;
+    }
+  };
+
+  if (currentStep === 7 && prediction) {
+    // Results View
+    const chartData = prediction.featureContributions?.map((item: any) => ({
+      name: item.feature.replace(/_/g, ' '),
+      impact: Math.abs(item.contribution),
+      fill: item.contribution > 0 ? '#ef4444' : '#22c55e'
+    })) || [];
+
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Risk Assessment Results</h1>
+          <p className="text-muted-foreground">
+            Based on your comprehensive credit profile
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="p-6">
+            <RiskMeter score={prediction.riskScore} riskLevel={prediction.riskLevel} />
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="text-2xl font-bold mb-4">Summary Statistics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">Default Probability</p>
+                <p className="text-2xl font-bold">{(prediction.probabilityOfDefault * 100).toFixed(1)}%</p>
+              </div>
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">Risk Level</p>
+                <p className="text-2xl font-bold">{prediction.riskLevel}</p>
+              </div>
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">Model Version</p>
+                <p className="text-2xl font-bold">{prediction.modelVersion}</p>
+              </div>
+            </div>
+          </Card>
+
+          {prediction.featureContributions && (
+            <>
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold mb-4">Feature Contributions</h2>
+                <div className="space-y-2">
+                  {prediction.featureContributions.map((item: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded">
+                      <span className="font-medium">{item.feature.replace(/_/g, ' ')}</span>
+                      <span className={`font-bold ${item.contribution > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        {item.contribution > 0 ? '+' : ''}{item.contribution.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold mb-4">Feature Impact Visualization</h2>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="impact" name="Impact Magnitude" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            </>
+          )}
+
+          {prediction.recommendation && (
+            <Card className="p-6 border-l-4 border-l-primary">
+              <h2 className="text-2xl font-bold mb-2">Recommendation</h2>
+              <p className="text-lg">{prediction.recommendation}</p>
+            </Card>
+          )}
+
+          <div className="flex justify-center">
+            <Button 
+              onClick={() => {
+                setCurrentStep(1);
+                setPrediction(null);
+              }}
+              size="lg"
+            >
+              Start New Assessment
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container py-8">
+    <div className="container mx-auto py-8 px-4 max-w-5xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Credit Risk Prediction</h1>
+        <h1 className="text-4xl font-bold mb-2">CredMill - Credit Risk Assessment</h1>
         <p className="text-muted-foreground">
-          Enter applicant information to get an AI-powered credit risk assessment
+          Complete the multi-step form for comprehensive credit risk evaluation
         </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Input Form */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Applicant Information</h2>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="income">Annual Income ($)</Label>
-              <Input
-                id="income"
-                name="income"
-                type="number"
-                value={formData.income}
-                onChange={handleInputChange}
-                placeholder="65000"
-              />
-            </div>
+      <StepIndicator 
+        currentStep={currentStep} 
+        totalSteps={stepLabels.length} 
+        stepLabels={stepLabels} 
+      />
 
-            <div>
-              <Label htmlFor="debtRatio">Debt-to-Income Ratio</Label>
-              <Input
-                id="debtRatio"
-                name="debtRatio"
-                type="number"
-                step="0.01"
-                value={formData.debtRatio}
-                onChange={handleInputChange}
-                placeholder="0.35"
-              />
-            </div>
+      <div className="my-8">
+        {renderStep()}
+      </div>
 
-            <div>
-              <Label htmlFor="creditScore">Credit Score</Label>
-              <Input
-                id="creditScore"
-                name="creditScore"
-                type="number"
-                value={formData.creditScore}
-                onChange={handleInputChange}
-                placeholder="720"
-              />
-            </div>
+      <div className="flex justify-between mt-6">
+        <Button
+          variant="outline"
+          onClick={handleBack}
+          disabled={currentStep === 1}
+        >
+          Back
+        </Button>
 
-            <div>
-              <Label htmlFor="age">Age</Label>
-              <Input
-                id="age"
-                name="age"
-                type="number"
-                value={formData.age}
-                onChange={handleInputChange}
-                placeholder="35"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="employmentLength">Employment Length (years)</Label>
-              <Input
-                id="employmentLength"
-                name="employmentLength"
-                type="number"
-                value={formData.employmentLength}
-                onChange={handleInputChange}
-                placeholder="5"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="creditLines">Number of Credit Lines</Label>
-              <Input
-                id="creditLines"
-                name="creditLines"
-                type="number"
-                value={formData.creditLines}
-                onChange={handleInputChange}
-                placeholder="3"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="recentInquiries">Recent Credit Inquiries</Label>
-              <Input
-                id="recentInquiries"
-                name="recentInquiries"
-                type="number"
-                value={formData.recentInquiries}
-                onChange={handleInputChange}
-                placeholder="1"
-              />
-            </div>
-
-            <Button onClick={handlePredict} disabled={loading} className="w-full" size="lg">
-              {loading ? "Analyzing..." : "Generate Prediction"}
-            </Button>
-          </div>
-        </Card>
-
-        {/* Prediction Results */}
-        {prediction && (
-          <div className="space-y-6">
-            {/* Risk Meter */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-6">Risk Assessment</h2>
-              <RiskMeter score={prediction.riskScore} riskLevel={prediction.riskLevel} />
-            </Card>
-
-            {/* Summary Stats */}
-            <Card className="p-6">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-muted rounded-lg p-4">
-                  <p className="text-sm text-muted-foreground mb-1">Default Probability</p>
-                  <p className="text-2xl font-bold">{(prediction.defaultProbability * 100).toFixed(1)}%</p>
-                </div>
-                <div className="bg-muted rounded-lg p-4">
-                  <p className="text-sm text-muted-foreground mb-1">Model Version</p>
-                  <p className="text-lg font-semibold">{prediction.modelInfo.version}</p>
-                </div>
-              </div>
-
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold mb-1">Recommendation</p>
-                    <p className="text-sm">{prediction.recommendation}</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Feature Contributions */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Feature Contributions</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                How each factor influences the prediction
-              </p>
-
-              <div className="space-y-4">
-                {prediction.features.map((feature: any, index: number) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {feature.direction === "positive" ? (
-                          <TrendingUp className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-red-500" />
-                        )}
-                        <span className="text-sm font-medium">{feature.name}</span>
-                      </div>
-                      <span
-                        className={`text-sm font-semibold ${
-                          feature.impact > 0 ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {feature.impact > 0 ? "+" : ""}
-                        {feature.impact.toFixed(3)}
-                      </span>
-                    </div>
-                    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`absolute h-full ${
-                          feature.impact > 0 ? "bg-green-500" : "bg-red-500"
-                        }`}
-                        style={{
-                          width: `${Math.abs(feature.impact) * 100}%`,
-                          left: feature.impact < 0 ? `${50 - Math.abs(feature.impact) * 100}%` : "50%",
-                        }}
-                      />
-                      <div className="absolute left-1/2 top-0 h-full w-0.5 bg-border" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Visual Chart */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Impact Visualization</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={prediction.features} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis type="number" className="text-xs" domain={[-0.1, 0.2]} />
-                  <YAxis type="category" dataKey="name" className="text-xs" width={150} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--background))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "0.5rem",
-                    }}
-                  />
-                  <Bar dataKey="impact" radius={[0, 4, 4, 0]}>
-                    {prediction.features.map((entry: any, index: number) => (
-                      <Cell
-                        key={index}
-                        fill={entry.impact > 0 ? "hsl(var(--chart-2))" : "hsl(var(--chart-5))"}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </Card>
-          </div>
+        {currentStep < 5 && (
+          <Button onClick={handleNext}>
+            Next
+          </Button>
         )}
 
-        {!prediction && (
-          <Card className="p-6">
-            <div className="mb-4 text-center">
-              <h2 className="text-xl font-semibold mb-2">Risk Meter Preview</h2>
-              <p className="text-sm text-muted-foreground">
-                This is how your risk assessment will be displayed
-              </p>
-            </div>
-            <RiskMeter score={650} riskLevel="Low Risk" />
-          </Card>
+        {currentStep === 5 && (
+          <Button onClick={handleNext}>
+            Review Summary
+          </Button>
+        )}
+
+        {currentStep === 6 && (
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Submit for Risk Assessment'
+            )}
+          </Button>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default Predict;
