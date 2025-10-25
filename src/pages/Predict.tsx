@@ -235,7 +235,7 @@ const Predict = () => {
 
     setIsSubmitting(true);
     try {
-      // Map form data to API expected format
+      // Map form data to API expected format (match exact field names from CSV)
       const apiPayload = {
         Age: Number(formData.age),
         Employment_Status: formData.employment_status,
@@ -262,7 +262,7 @@ const Predict = () => {
         Net_Worth: derivedMetrics.net_worth,
 
         Number_of_Late_Payments: Number(formData.number_of_late_payments),
-        Worst_Delinquency_Status: formData.worst_delinquency_status === 'None' ? 0 : formData.worst_delinquency_status,
+        Worst_Delinquency_Status: Number(formData.worst_delinquency_status),
         Months_since_Last_Delinquency: Number(formData.months_since_last_delinquency),
         Number_of_Credit_Inquiries: Number(formData.number_of_credit_inquiries),
         Number_of_Open_Credit_Lines: Number(formData.number_of_open_credit_lines),
@@ -281,14 +281,13 @@ const Predict = () => {
         Transaction_Amount: Number(formData.transaction_amount),
         Transaction_Frequency: Number(formData.transaction_frequency),
         Days_since_Last_Transaction: Number(formData.time_since_last_transaction),
+
         Avg_Probability_of_Default: Number(formData.average_pd) / 100,
         Avg_Risk_Weighted_Assets: Number(formData.average_rwa),
         DPD_Trigger_Count: Number(formData.dpd_trigger_count),
         Cash_Flow_Volatility: Number(formData.cash_flow_volatility),
         Seasonal_Spending_Pattern: formData.seasonal_spending_pattern,
       };
-
-      console.log('Sending payload to API:', apiPayload);
 
       console.log('Sending payload to API:', apiPayload);
 
@@ -303,11 +302,11 @@ const Predict = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error('Prediction API request failed');
+        throw new Error(data.error || 'Prediction API request failed');
       }
 
-      const data = await response.json();
-      
+      console.log('API Response:', data);
+
       // Transform API response to match expected format
       const transformedPrediction = {
         riskScore: data.predicted_credit_risk_score,
