@@ -23,8 +23,12 @@ const Predict = () => {
     age: '',
     employment_status: '',
     employment_duration: '',
+    industry_sector: '',
+    education_level: '',
+    marital_status: '',
     housing_status: '',
     years_at_residence: '',
+    number_of_dependents: '',
     city_region: '',
     
     // Step 2: Financial
@@ -34,6 +38,7 @@ const Predict = () => {
     credit_history_length: '',
     number_of_existing_loans: '',
     total_credit_limit: '',
+    credit_utilization_rate: '',
     savings_account_balance: '',
     checking_account_balance: '',
     total_assets: '',
@@ -48,6 +53,7 @@ const Predict = () => {
     bankruptcy_flag: false,
     time_since_bankruptcy: '',
     credit_mix: '',
+    bankruptcy_trigger_flag: false,
     
     // Step 4: Loan Details
     loan_amount_requested: '',
@@ -63,6 +69,9 @@ const Predict = () => {
     average_pd: '',
     average_lgd: '',
     average_rwa: '',
+    dpd_trigger_count: '',
+    cash_flow_volatility: '',
+    seasonal_spending_pattern: '',
   });
   
   const [derivedMetrics, setDerivedMetrics] = useState({
@@ -71,6 +80,7 @@ const Predict = () => {
     loan_to_income_ratio: 0,
     payment_to_income_ratio: 0,
     net_worth: 0,
+    credit_utilization_rate: 0,
   });
 
   const [prediction, setPrediction] = useState<any>(null);
@@ -89,18 +99,29 @@ const Predict = () => {
     const loanAmount = Number(formData.loan_amount_requested) || 0;
     const loanTerm = Number(formData.loan_term) || 1;
     const totalAssets = Number(formData.total_assets) || 0;
+    const totalCreditLimit = Number(formData.total_credit_limit) || 0;
 
     const monthlyIncome = annualIncome / 12;
     const estimatedMonthlyPayment = loanTerm > 0 ? loanAmount / loanTerm : 0;
+    const creditUtilization = totalCreditLimit > 0 ? totalDebt / totalCreditLimit : 0;
 
-    setDerivedMetrics({
+    const newMetrics = {
       monthly_income: monthlyIncome,
       debt_to_income_ratio: monthlyIncome > 0 ? totalDebt / monthlyIncome : 0,
       loan_to_income_ratio: annualIncome > 0 ? loanAmount / annualIncome : 0,
       payment_to_income_ratio: monthlyIncome > 0 ? estimatedMonthlyPayment / monthlyIncome : 0,
       net_worth: totalAssets - totalDebt,
-    });
-  }, [formData.annual_income, formData.total_debt, formData.loan_amount_requested, formData.loan_term, formData.total_assets]);
+      credit_utilization_rate: creditUtilization,
+    };
+
+    setDerivedMetrics(newMetrics);
+    
+    // Update formData with calculated credit utilization
+    setFormData(prev => ({
+      ...prev,
+      credit_utilization_rate: creditUtilization.toString()
+    }));
+  }, [formData.annual_income, formData.total_debt, formData.loan_amount_requested, formData.loan_term, formData.total_assets, formData.total_credit_limit]);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -108,14 +129,14 @@ const Predict = () => {
 
   const validateStep = (step: number): boolean => {
     const requiredFields: { [key: number]: string[] } = {
-      1: ['age', 'employment_status', 'employment_duration', 'housing_status', 'years_at_residence', 'city_region'],
+      1: ['age', 'employment_status', 'employment_duration', 'industry_sector', 'education_level', 'marital_status', 'housing_status', 'years_at_residence', 'number_of_dependents', 'city_region'],
       2: ['annual_income', 'total_debt', 'credit_score', 'credit_history_length', 'number_of_existing_loans', 
           'total_credit_limit', 'savings_account_balance', 'checking_account_balance', 'total_assets', 'number_of_open_credit_lines'],
       3: ['number_of_late_payments', 'worst_delinquency_status', 'months_since_last_delinquency', 
           'number_of_credit_inquiries', 'number_of_derogatory_records', 'credit_mix'],
       4: ['loan_amount_requested', 'loan_term', 'loan_purpose', 'collateral_type', 'collateral_value',
           'transaction_amount', 'transaction_frequency', 'time_since_last_transaction'],
-      5: ['average_pd', 'average_lgd', 'average_rwa'],
+      5: ['average_pd', 'average_lgd', 'average_rwa', 'dpd_trigger_count', 'cash_flow_volatility', 'seasonal_spending_pattern'],
     };
 
     const fields = requiredFields[step] || [];
@@ -159,19 +180,91 @@ const Predict = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const payload = {
-        ...formData,
-        ...derivedMetrics,
+      // Map form data to API expected format
+      const apiPayload = {
+        Age: Number(formData.age),
+        Employment_Status: formData.employment_status,
+        Employment_Duration: Number(formData.employment_duration),
+        Industry_Sector: formData.industry_sector,
+        Education_Level: formData.education_level,
+        Marital_Status: formData.marital_status,
+        Housing_Status: formData.housing_status,
+        Years_at_Residence: Number(formData.years_at_residence),
+        Number_of_Dependents: Number(formData.number_of_dependents),
+        Annual_Income: Number(formData.annual_income),
+        Total_Debt: Number(formData.total_debt),
+        Debt_to_Income_Ratio: derivedMetrics.debt_to_income_ratio,
+        Loan_to_Income_Ratio: derivedMetrics.loan_to_income_ratio,
+        Credit_Score: Number(formData.credit_score),
+        Credit_History_Length: Number(formData.credit_history_length),
+        Number_of_Existing_Loans: Number(formData.number_of_existing_loans),
+        Total_Credit_Limit: Number(formData.total_credit_limit),
+        Credit_Utilization_Rate: derivedMetrics.credit_utilization_rate,
+        Savings_Account_Balance: Number(formData.savings_account_balance),
+        Checking_Account_Balance: Number(formData.checking_account_balance),
+        Total_Assets: Number(formData.total_assets),
+        Net_Worth: derivedMetrics.net_worth,
+        Number_of_Late_Payments: Number(formData.number_of_late_payments),
+        Worst_Delinquency_Status: formData.worst_delinquency_status === 'None' ? 0 : formData.worst_delinquency_status,
+        Months_since_Last_Delinquency: Number(formData.months_since_last_delinquency),
+        Number_of_Credit_Inquiries: Number(formData.number_of_credit_inquiries),
+        Number_of_Open_Credit_Lines: Number(formData.number_of_open_credit_lines),
+        Number_of_Derogatory_Records: Number(formData.number_of_derogatory_records),
+        Bankruptcy_Flag: formData.bankruptcy_flag ? "TRUE" : "FALSE",
+        Credit_Mix: formData.credit_mix,
+        Loan_Amount_Requested: Number(formData.loan_amount_requested),
+        Loan_Term_Months: Number(formData.loan_term),
+        Loan_Purpose: formData.loan_purpose,
+        Payment_to_Income_Ratio: derivedMetrics.payment_to_income_ratio,
+        Collateral_Type: formData.collateral_type,
+        Collateral_Value: Number(formData.collateral_value),
+        Transaction_Amount: Number(formData.transaction_amount),
+        Transaction_Frequency: Number(formData.transaction_frequency),
+        Days_since_Last_Transaction: Number(formData.time_since_last_transaction),
+        Avg_Probability_of_Default: Number(formData.average_pd) / 100,
+        Avg_Risk_Weighted_Assets: Number(formData.average_rwa),
+        DPD_Trigger_Count: Number(formData.dpd_trigger_count),
+        Bankruptcy_Trigger_Flag: formData.bankruptcy_trigger_flag ? "TRUE" : "FALSE",
+        Cash_Flow_Volatility: Number(formData.cash_flow_volatility),
+        Seasonal_Spending_Pattern: formData.seasonal_spending_pattern,
       };
 
-      const { data, error } = await supabase.functions.invoke('credit-predict', {
-        body: payload
+      const response = await fetch('https://be-project-xak5.onrender.com/predict', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPayload),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Prediction API request failed');
+      }
 
-      setPrediction(data);
-      setCurrentStep(7); // Move to results view
+      const data = await response.json();
+      
+      // Transform API response to match expected format
+      const transformedPrediction = {
+        riskScore: data.predicted_credit_risk_score,
+        riskLevel: data.predicted_credit_risk_score >= 750 ? '🟢 Excellent Credit' :
+                   data.predicted_credit_risk_score >= 700 ? '🟢 Good Credit' :
+                   data.predicted_credit_risk_score >= 650 ? '🟡 Fair Credit' :
+                   data.predicted_credit_risk_score >= 600 ? '🟠 Poor Credit' : '🔴 Very Poor Credit',
+        probabilityOfDefault: data.predicted_credit_risk_score >= 700 ? 0.05 :
+                             data.predicted_credit_risk_score >= 650 ? 0.15 :
+                             data.predicted_credit_risk_score >= 600 ? 0.30 : 0.50,
+        modelVersion: 'XGBoost v2.0',
+        recommendation: data.predicted_credit_risk_score >= 700 ? 
+          'Excellent credit profile. Loan approval recommended with favorable terms.' :
+          data.predicted_credit_risk_score >= 650 ?
+          'Good credit profile. Loan approval recommended with standard terms.' :
+          data.predicted_credit_risk_score >= 600 ?
+          'Fair credit profile. Loan may be approved with higher interest rates or additional requirements.' :
+          'Credit profile needs improvement. Consider debt reduction and timely payments before reapplying.',
+      };
+
+      setPrediction(transformedPrediction);
+      setCurrentStep(7);
       toast({
         title: "✅ Assessment Complete",
         description: "Your credit profile has been successfully submitted for assessment.",

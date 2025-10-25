@@ -112,12 +112,21 @@ export const Step3CreditHistory = ({ formData, onChange }: Step3CreditHistoryPro
               <SelectValue placeholder="Select credit mix" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Revolving">Revolving</SelectItem>
-              <SelectItem value="Installment">Installment</SelectItem>
-              <SelectItem value="Mortgage">Mortgage</SelectItem>
-              <SelectItem value="Mixed">Mixed</SelectItem>
+              <SelectItem value="Poor">Poor</SelectItem>
+              <SelectItem value="Fair">Fair</SelectItem>
+              <SelectItem value="Good">Good</SelectItem>
+              <SelectItem value="Excellent">Excellent</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="bankruptcy_trigger_flag"
+            checked={formData.bankruptcy_trigger_flag || false}
+            onCheckedChange={(checked) => onChange('bankruptcy_trigger_flag', checked)}
+          />
+          <Label htmlFor="bankruptcy_trigger_flag">Bankruptcy Trigger Flag</Label>
         </div>
       </div>
     </Card>

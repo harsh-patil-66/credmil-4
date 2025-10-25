@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TrendingUp, HelpCircle } from "lucide-react";
 
@@ -92,6 +93,46 @@ export const Step5Behavioral = ({ formData, onChange }: Step5BehavioralProps) =>
             required
             min="0"
           />
+        </div>
+
+        <div>
+          <Label htmlFor="dpd_trigger_count">DPD Trigger Count *</Label>
+          <Input
+            id="dpd_trigger_count"
+            type="number"
+            value={formData.dpd_trigger_count || ''}
+            onChange={(e) => onChange('dpd_trigger_count', e.target.value)}
+            required
+            min="0"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="cash_flow_volatility">Cash Flow Volatility (0-1) *</Label>
+          <Input
+            id="cash_flow_volatility"
+            type="number"
+            value={formData.cash_flow_volatility || ''}
+            onChange={(e) => onChange('cash_flow_volatility', e.target.value)}
+            required
+            min="0"
+            max="1"
+            step="0.01"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="seasonal_spending_pattern">Seasonal Spending Pattern *</Label>
+          <Select value={formData.seasonal_spending_pattern} onValueChange={(v) => onChange('seasonal_spending_pattern', v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select pattern" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Low">Low</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="High">High</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </Card>

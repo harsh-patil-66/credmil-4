@@ -151,6 +151,23 @@ export const Step2Financial = ({ formData, onChange }: Step2FinancialProps) => {
             min="0"
           />
         </div>
+
+        <div>
+          <Label htmlFor="credit_utilization_rate">Credit Utilization Rate (0-1) *</Label>
+          <Input
+            id="credit_utilization_rate"
+            type="number"
+            value={formData.credit_utilization_rate || ''}
+            onChange={(e) => onChange('credit_utilization_rate', e.target.value)}
+            required
+            min="0"
+            max="1"
+            step="0.01"
+            disabled
+            className="bg-muted"
+          />
+          <p className="text-xs text-muted-foreground mt-1">Auto-calculated from debt and credit limit</p>
+        </div>
       </div>
     </Card>
   );

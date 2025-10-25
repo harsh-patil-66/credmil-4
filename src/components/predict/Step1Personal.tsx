@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { User, Home } from "lucide-react";
+import { User } from "lucide-react";
 
 interface Step1PersonalProps {
   formData: any;
@@ -93,6 +93,66 @@ export const Step1Personal = ({ formData, onChange }: Step1PersonalProps) => {
             value={formData.city_region || ''}
             onChange={(e) => onChange('city_region', e.target.value)}
             required
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="industry_sector">Industry Sector *</Label>
+          <Select value={formData.industry_sector} onValueChange={(v) => onChange('industry_sector', v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select sector" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Finance">Finance</SelectItem>
+              <SelectItem value="Technology">Technology</SelectItem>
+              <SelectItem value="Healthcare">Healthcare</SelectItem>
+              <SelectItem value="Manufacturing">Manufacturing</SelectItem>
+              <SelectItem value="Retail">Retail</SelectItem>
+              <SelectItem value="Education">Education</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="education_level">Education Level *</Label>
+          <Select value={formData.education_level} onValueChange={(v) => onChange('education_level', v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select education" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="High School">High School</SelectItem>
+              <SelectItem value="Undergraduate">Undergraduate</SelectItem>
+              <SelectItem value="Postgraduate">Postgraduate</SelectItem>
+              <SelectItem value="Doctorate">Doctorate</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="marital_status">Marital Status *</Label>
+          <Select value={formData.marital_status} onValueChange={(v) => onChange('marital_status', v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Single">Single</SelectItem>
+              <SelectItem value="Married">Married</SelectItem>
+              <SelectItem value="Divorced">Divorced</SelectItem>
+              <SelectItem value="Widowed">Widowed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="number_of_dependents">Number of Dependents *</Label>
+          <Input
+            id="number_of_dependents"
+            type="number"
+            value={formData.number_of_dependents || ''}
+            onChange={(e) => onChange('number_of_dependents', e.target.value)}
+            required
+            min="0"
           />
         </div>
       </div>
