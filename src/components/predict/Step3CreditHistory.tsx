@@ -17,7 +17,7 @@ export const Step3CreditHistory = ({ formData, onChange }: Step3CreditHistoryPro
         <CreditCard className="w-5 h-5 text-primary" />
         <h2 className="text-2xl font-bold">Credit History & Payment Behavior</h2>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <Label htmlFor="number_of_late_payments">Number of Late Payments (Last 24 Months) *</Label>
@@ -32,19 +32,18 @@ export const Step3CreditHistory = ({ formData, onChange }: Step3CreditHistoryPro
         </div>
 
         <div>
-          <Label htmlFor="worst_delinquency_status">Worst Delinquency Status *</Label>
-          <Select value={formData.worst_delinquency_status} onValueChange={(v) => onChange('worst_delinquency_status', v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="None">None</SelectItem>
-              <SelectItem value="30 Days">30 Days</SelectItem>
-              <SelectItem value="60 Days">60 Days</SelectItem>
-              <SelectItem value="90+ Days">90+ Days</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label htmlFor="worst_delinquency_status">Worst Delinquency Status (in months) *</Label>
+          <Input
+            type="number"
+            id="worst_delinquency_status"
+            placeholder="Enter the months"
+            value={formData.worst_delinquency_status}
+            onChange={(e) => onChange('worst_delinquency_status', Number(e.target.value))}
+            min={0}
+            step={1}
+          />
         </div>
+
 
         <div>
           <Label htmlFor="months_since_last_delinquency">Months Since Last Delinquency *</Label>

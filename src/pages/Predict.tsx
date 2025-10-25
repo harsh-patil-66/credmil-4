@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RiskMeter } from "@/components/RiskMeter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -12,12 +11,16 @@ import { Step3CreditHistory } from "@/components/predict/Step3CreditHistory";
 import { Step4LoanDetails } from "@/components/predict/Step4LoanDetails";
 import { Step5Behavioral } from "@/components/predict/Step5Behavioral";
 import { SummaryStep } from "@/components/predict/SummaryStep";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+
+const API_URL = 'http://127.0.0.1:10000';
 
 const Predict = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiConnected, setApiConnected] = useState<boolean | null>(null);
+  
   const [formData, setFormData] = useState({
     // Step 1: Personal & Residential
     age: '',
@@ -30,7 +33,7 @@ const Predict = () => {
     years_at_residence: '',
     number_of_dependents: '',
     city_region: '',
-    
+
     // Step 2: Financial
     annual_income: '',
     total_debt: '',
@@ -43,7 +46,7 @@ const Predict = () => {
     checking_account_balance: '',
     total_assets: '',
     number_of_open_credit_lines: '',
-    
+
     // Step 3: Credit History
     number_of_late_payments: '',
     worst_delinquency_status: '',
@@ -54,7 +57,7 @@ const Predict = () => {
     time_since_bankruptcy: '',
     credit_mix: '',
     bankruptcy_trigger_flag: false,
-    
+
     // Step 4: Loan Details
     loan_amount_requested: '',
     loan_term: '',
@@ -64,7 +67,7 @@ const Predict = () => {
     transaction_amount: '',
     transaction_frequency: '',
     time_since_last_transaction: '',
-    
+
     // Step 5: Behavioral
     average_pd: '',
     average_lgd: '',
@@ -73,7 +76,7 @@ const Predict = () => {
     cash_flow_volatility: '',
     seasonal_spending_pattern: '',
   });
-  
+
   const [derivedMetrics, setDerivedMetrics] = useState({
     monthly_income: 0,
     debt_to_income_ratio: 0,
@@ -87,11 +90,54 @@ const Predict = () => {
 
   const stepLabels = [
     "Personal",
-    "Financial", 
+    "Financial",
     "Credit",
     "Loan",
     "Behavioral"
   ];
+
+  // Check API connection on mount
+  useEffect(() => {
+    checkApiConnection();
+  }, []);
+
+  const checkApiConnection = async () => {
+    try {
+      const response = await fetch(`${API_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setApiConnected(data.model_loaded);
+        if (data.model_loaded) {
+          toast({
+            title: "✅ API Connected",
+            description: "Successfully connected to prediction API",
+          });
+        } else {
+          toast({
+            title: "⚠️ Model Not Loaded",
+            description: "API is running but model is not loaded",
+            variant: "destructive",
+          });
+        }
+      } else {
+        setApiConnected(false);
+      }
+    } catch (error) {
+      console.error('API connection error:', error);
+      setApiConnected(false);
+      toast({
+        title: "❌ API Connection Failed",
+        description: "Cannot connect to Flask API. Make sure it's running on port 10000.",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     const annualIncome = Number(formData.annual_income) || 0;
@@ -115,7 +161,7 @@ const Predict = () => {
     };
 
     setDerivedMetrics(newMetrics);
-    
+
     // Update formData with calculated credit utilization
     setFormData(prev => ({
       ...prev,
@@ -129,14 +175,13 @@ const Predict = () => {
 
   const validateStep = (step: number): boolean => {
     const requiredFields: { [key: number]: string[] } = {
-      1: ['age', 'employment_status', 'employment_duration', 'industry_sector', 'education_level', 'marital_status', 'housing_status', 'years_at_residence', 'number_of_dependents', 'city_region'],
-      2: ['annual_income', 'total_debt', 'credit_score', 'credit_history_length', 'number_of_existing_loans', 
-          'total_credit_limit', 'savings_account_balance', 'checking_account_balance', 'total_assets', 'number_of_open_credit_lines'],
-      3: ['number_of_late_payments', 'worst_delinquency_status', 'months_since_last_delinquency', 
-          'number_of_credit_inquiries', 'number_of_derogatory_records', 'credit_mix'],
+      1: ['age', 'employment_status', 'employment_duration', 'industry_sector', 'education_level', 'marital_status', 'housing_status', 'years_at_residence', 'number_of_dependents'],
+      2: ['annual_income', 'total_debt', 'credit_score', 'credit_history_length', 'number_of_existing_loans',
+        'total_credit_limit', 'savings_account_balance', 'checking_account_balance', 'total_assets', 'number_of_open_credit_lines'],
+      3: ['number_of_late_payments', 'worst_delinquency_status', 'months_since_last_delinquency',
+        'number_of_credit_inquiries', 'number_of_derogatory_records', 'credit_mix'],
       4: ['loan_amount_requested', 'loan_term', 'loan_purpose', 'collateral_type', 'collateral_value',
-          'transaction_amount', 'transaction_frequency', 'time_since_last_transaction'],
-      5: ['average_pd', 'average_lgd', 'average_rwa', 'dpd_trigger_count', 'cash_flow_volatility', 'seasonal_spending_pattern'],
+        'transaction_amount', 'transaction_frequency', 'time_since_last_transaction'],
     };
 
     const fields = requiredFields[step] || [];
@@ -148,7 +193,7 @@ const Predict = () => {
     if (missingFields.length > 0) {
       toast({
         title: "Missing Fields",
-        description: "Please fill in all required fields before proceeding.",
+        description: `Please fill in all required fields: ${missingFields.join(', ')}`,
         variant: "destructive",
       });
       return false;
@@ -178,9 +223,19 @@ const Predict = () => {
   };
 
   const handleSubmit = async () => {
+    // Check API connection before submitting
+    if (apiConnected === false) {
+      toast({
+        title: "API Not Connected",
+        description: "Please ensure Flask API is running on port 10000",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Map form data to API expected format
+      // Map form data to API expected format (match exact field names from CSV)
       const apiPayload = {
         Age: Number(formData.age),
         Employment_Status: formData.employment_status,
@@ -191,6 +246,7 @@ const Predict = () => {
         Housing_Status: formData.housing_status,
         Years_at_Residence: Number(formData.years_at_residence),
         Number_of_Dependents: Number(formData.number_of_dependents),
+
         Annual_Income: Number(formData.annual_income),
         Total_Debt: Number(formData.total_debt),
         Debt_to_Income_Ratio: derivedMetrics.debt_to_income_ratio,
@@ -204,32 +260,38 @@ const Predict = () => {
         Checking_Account_Balance: Number(formData.checking_account_balance),
         Total_Assets: Number(formData.total_assets),
         Net_Worth: derivedMetrics.net_worth,
+
         Number_of_Late_Payments: Number(formData.number_of_late_payments),
-        Worst_Delinquency_Status: formData.worst_delinquency_status === 'None' ? 0 : formData.worst_delinquency_status,
+        Worst_Delinquency_Status: Number(formData.worst_delinquency_status),
         Months_since_Last_Delinquency: Number(formData.months_since_last_delinquency),
         Number_of_Credit_Inquiries: Number(formData.number_of_credit_inquiries),
         Number_of_Open_Credit_Lines: Number(formData.number_of_open_credit_lines),
         Number_of_Derogatory_Records: Number(formData.number_of_derogatory_records),
         Bankruptcy_Flag: formData.bankruptcy_flag ? "TRUE" : "FALSE",
         Credit_Mix: formData.credit_mix,
+        Bankruptcy_Trigger_Flag: formData.bankruptcy_trigger_flag ? "TRUE" : "FALSE",
+
         Loan_Amount_Requested: Number(formData.loan_amount_requested),
         Loan_Term_Months: Number(formData.loan_term),
         Loan_Purpose: formData.loan_purpose,
         Payment_to_Income_Ratio: derivedMetrics.payment_to_income_ratio,
         Collateral_Type: formData.collateral_type,
         Collateral_Value: Number(formData.collateral_value),
+
         Transaction_Amount: Number(formData.transaction_amount),
         Transaction_Frequency: Number(formData.transaction_frequency),
         Days_since_Last_Transaction: Number(formData.time_since_last_transaction),
+
         Avg_Probability_of_Default: Number(formData.average_pd) / 100,
         Avg_Risk_Weighted_Assets: Number(formData.average_rwa),
         DPD_Trigger_Count: Number(formData.dpd_trigger_count),
-        Bankruptcy_Trigger_Flag: formData.bankruptcy_trigger_flag ? "TRUE" : "FALSE",
         Cash_Flow_Volatility: Number(formData.cash_flow_volatility),
         Seasonal_Spending_Pattern: formData.seasonal_spending_pattern,
       };
 
-      const response = await fetch('https://be-project-xak5.onrender.com/predict', {
+      console.log('Sending payload to API:', apiPayload);
+
+      const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -237,43 +299,50 @@ const Predict = () => {
         body: JSON.stringify(apiPayload),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Prediction API request failed');
+        throw new Error(data.error || 'Prediction API request failed');
       }
 
-      const data = await response.json();
-      
+      console.log('API Response:', data);
+
       // Transform API response to match expected format
       const transformedPrediction = {
         riskScore: data.predicted_credit_risk_score,
-        riskLevel: data.predicted_credit_risk_score >= 750 ? '🟢 Excellent Credit' :
-                   data.predicted_credit_risk_score >= 700 ? '🟢 Good Credit' :
-                   data.predicted_credit_risk_score >= 650 ? '🟡 Fair Credit' :
-                   data.predicted_credit_risk_score >= 600 ? '🟠 Poor Credit' : '🔴 Very Poor Credit',
-        probabilityOfDefault: data.predicted_credit_risk_score >= 700 ? 0.05 :
-                             data.predicted_credit_risk_score >= 650 ? 0.15 :
-                             data.predicted_credit_risk_score >= 600 ? 0.30 : 0.50,
+        riskLevel: data.risk_level || (
+          data.predicted_credit_risk_score >= 750 ? '🟢 Excellent Credit' :
+          data.predicted_credit_risk_score >= 700 ? '🟢 Good Credit' :
+          data.predicted_credit_risk_score >= 650 ? '🟡 Fair Credit' :
+          data.predicted_credit_risk_score >= 600 ? '🟠 Poor Credit' : '🔴 Very Poor Credit'
+        ),
+        probabilityOfDefault: data.probability_of_default || (
+          data.predicted_credit_risk_score >= 700 ? 0.05 :
+          data.predicted_credit_risk_score >= 650 ? 0.15 :
+          data.predicted_credit_risk_score >= 600 ? 0.30 : 0.50
+        ),
         modelVersion: 'XGBoost v2.0',
-        recommendation: data.predicted_credit_risk_score >= 700 ? 
+        totalFeaturesUsed: data.total_features_used,
+        recommendation: data.predicted_credit_risk_score >= 700 ?
           'Excellent credit profile. Loan approval recommended with favorable terms.' :
           data.predicted_credit_risk_score >= 650 ?
-          'Good credit profile. Loan approval recommended with standard terms.' :
-          data.predicted_credit_risk_score >= 600 ?
-          'Fair credit profile. Loan may be approved with higher interest rates or additional requirements.' :
-          'Credit profile needs improvement. Consider debt reduction and timely payments before reapplying.',
+            'Good credit profile. Loan approval recommended with standard terms.' :
+            data.predicted_credit_risk_score >= 600 ?
+              'Fair credit profile. Loan may be approved with higher interest rates or additional requirements.' :
+              'Credit profile needs improvement. Consider debt reduction and timely payments before reapplying.',
       };
 
       setPrediction(transformedPrediction);
       setCurrentStep(7);
       toast({
         title: "✅ Assessment Complete",
-        description: "Your credit profile has been successfully submitted for assessment.",
+        description: `Credit Risk Score: ${transformedPrediction.riskScore}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Prediction error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate prediction. Please try again.",
+        description: error.message || "Failed to generate prediction. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -304,12 +373,6 @@ const Predict = () => {
 
   if (currentStep === 7 && prediction) {
     // Results View
-    const chartData = prediction.featureContributions?.map((item: any) => ({
-      name: item.feature.replace(/_/g, ' '),
-      impact: Math.abs(item.contribution),
-      fill: item.contribution > 0 ? '#ef4444' : '#22c55e'
-    })) || [];
-
     return (
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
@@ -328,6 +391,10 @@ const Predict = () => {
             <h2 className="text-2xl font-bold mb-4">Summary Statistics</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">Credit Risk Score</p>
+                <p className="text-2xl font-bold">{prediction.riskScore}</p>
+              </div>
+              <div className="p-4 bg-muted/50 rounded-lg">
                 <p className="text-sm text-muted-foreground">Default Probability</p>
                 <p className="text-2xl font-bold">{(prediction.probabilityOfDefault * 100).toFixed(1)}%</p>
               </div>
@@ -335,44 +402,8 @@ const Predict = () => {
                 <p className="text-sm text-muted-foreground">Risk Level</p>
                 <p className="text-2xl font-bold">{prediction.riskLevel}</p>
               </div>
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">Model Version</p>
-                <p className="text-2xl font-bold">{prediction.modelVersion}</p>
-              </div>
             </div>
           </Card>
-
-          {prediction.featureContributions && (
-            <>
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Feature Contributions</h2>
-                <div className="space-y-2">
-                  {prediction.featureContributions.map((item: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded">
-                      <span className="font-medium">{item.feature.replace(/_/g, ' ')}</span>
-                      <span className={`font-bold ${item.contribution > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                        {item.contribution > 0 ? '+' : ''}{item.contribution.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Feature Impact Visualization</h2>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="impact" name="Impact Magnitude" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
-            </>
-          )}
 
           {prediction.recommendation && (
             <Card className="p-6 border-l-4 border-l-primary">
@@ -381,8 +412,8 @@ const Predict = () => {
             </Card>
           )}
 
-          <div className="flex justify-center">
-            <Button 
+          <div className="flex justify-center gap-4">
+            <Button
               onClick={() => {
                 setCurrentStep(1);
                 setPrediction(null);
@@ -390,6 +421,13 @@ const Predict = () => {
               size="lg"
             >
               Start New Assessment
+            </Button>
+            <Button
+              variant="outline"
+              onClick={checkApiConnection}
+              size="lg"
+            >
+              Check API Status
             </Button>
           </div>
         </div>
@@ -404,12 +442,33 @@ const Predict = () => {
         <p className="text-muted-foreground">
           Complete the multi-step form for comprehensive credit risk evaluation
         </p>
+        
+        {/* API Status Indicator */}
+        {apiConnected === false && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <div>
+              <p className="font-semibold text-red-900">API Connection Failed</p>
+              <p className="text-sm text-red-700">Make sure Flask API is running: python app.py</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={checkApiConnection} className="ml-auto">
+              Retry
+            </Button>
+          </div>
+        )}
+        
+        {apiConnected === true && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+            <p className="text-sm text-green-700">API Connected</p>
+          </div>
+        )}
       </div>
 
-      <StepIndicator 
-        currentStep={currentStep} 
-        totalSteps={stepLabels.length} 
-        stepLabels={stepLabels} 
+      <StepIndicator
+        currentStep={currentStep}
+        totalSteps={stepLabels.length}
+        stepLabels={stepLabels}
       />
 
       <div className="my-8">
@@ -438,7 +497,7 @@ const Predict = () => {
         )}
 
         {currentStep === 6 && (
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || apiConnected === false}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
