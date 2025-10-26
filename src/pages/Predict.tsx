@@ -291,8 +291,6 @@ const Predict = () => {
       localStorage.setItem("lastPredictionInput", JSON.stringify(apiPayload));
 
 
-      console.log('Sending payload to API:', apiPayload);
-
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
