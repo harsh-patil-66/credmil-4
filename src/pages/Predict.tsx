@@ -13,7 +13,7 @@ import { Step5Behavioral } from "@/components/predict/Step5Behavioral";
 import { SummaryStep } from "@/components/predict/SummaryStep";
 import { Loader2, AlertCircle } from "lucide-react";
 
-const API_URL = 'http://127.0.0.1:10000';
+const API_URL = 'https://be-project-xak5.onrender.com';
 
 const Predict = () => {
   const { toast } = useToast();

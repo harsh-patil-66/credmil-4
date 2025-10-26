@@ -44,7 +44,7 @@ export default function Explainability() {
         return;
       }
 
-      const response = await fetch("http://127.0.0.1:10000/explain", {
+      const response = await fetch("https://be-project-xak5.onrender.com/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: storedPayload,
