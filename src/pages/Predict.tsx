@@ -12,6 +12,7 @@ import { Step4LoanDetails } from "@/components/predict/Step4LoanDetails";
 import { Step5Behavioral } from "@/components/predict/Step5Behavioral";
 import { SummaryStep } from "@/components/predict/SummaryStep";
 import { Loader2, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const API_URL = 'https://be-project-xak5.onrender.com';
 
@@ -306,6 +307,27 @@ const Predict = () => {
       }
 
       console.log('API Response:', data);
+
+      // Get current user for database storage
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Store prediction in database
+      if (user) {
+        const { error: dbError } = await supabase
+          .from('predictions')
+          .insert({
+            user_id: user.id,
+            prediction_type: 'single',
+            ...apiPayload,
+            prediction_score: data.predicted_credit_risk_score || data.risk_score,
+            risk_level: data.risk_level,
+            prediction_label: data.prediction
+          });
+
+        if (dbError) {
+          console.error('Database insert error:', dbError);
+        }
+      }
 
       // Transform API response to match expected format
       const transformedPrediction = {

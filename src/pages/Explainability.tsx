@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Info, TrendingUp, TrendingDown, AlertCircle, CheckCircle, XCircle, Sparkles } from "lucide-react";
+import { Loader2, Info, TrendingUp, TrendingDown, AlertCircle, CheckCircle, XCircle, Sparkles, Database } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   BarChart,
   Bar,
@@ -24,30 +26,123 @@ import {
   Line
 } from "recharts";
 
+const API_URL = 'https://be-project-xak5.onrender.com';
+
 export default function Explainability() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'shap' | 'lime' | 'reasons'>('shap');
+  const [storedPredictions, setStoredPredictions] = useState<any[]>([]);
+  const [selectedPredictionId, setSelectedPredictionId] = useState<string | null>(null);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
+
+  // Load stored predictions on mount
+  useEffect(() => {
+    loadStoredPredictions();
+  }, []);
+
+  const loadStoredPredictions = async () => {
+    setLoadingPredictions(true);
+    try {
+      const { data, error } = await supabase
+        .from('predictions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setStoredPredictions(data || []);
+      
+      // Auto-select most recent if available
+      if (data && data.length > 0 && !selectedPredictionId) {
+        setSelectedPredictionId(data[0].id);
+      }
+    } catch (err: any) {
+      console.error('Error loading predictions:', err);
+    } finally {
+      setLoadingPredictions(false);
+    }
+  };
 
   const handleExplain = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Get the last prediction input from localStorage
-      const storedPayload = localStorage.getItem("lastPredictionInput");
-      
-      if (!storedPayload) {
-        setError("No saved applicant data found. Please complete a prediction first from the Predict page.");
-        setLoading(false);
-        return;
+      let payload: any;
+
+      // Check if using stored prediction or localStorage
+      if (selectedPredictionId) {
+        const prediction = storedPredictions.find(p => p.id === selectedPredictionId);
+        if (!prediction) {
+          throw new Error("Selected prediction not found");
+        }
+
+        // Build API payload from stored prediction
+        payload = {
+          Age: prediction.age,
+          Employment_Status: prediction.employment_status,
+          Employment_Duration: prediction.employment_duration,
+          Industry_Sector: prediction.industry_sector,
+          Education_Level: prediction.education_level,
+          Marital_Status: prediction.marital_status,
+          Housing_Status: prediction.housing_status,
+          Years_at_Residence: prediction.years_at_residence,
+          Number_of_Dependents: prediction.number_of_dependents,
+          Annual_Income: prediction.annual_income,
+          Total_Debt: prediction.total_debt,
+          Debt_to_Income_Ratio: prediction.debt_to_income_ratio,
+          Loan_to_Income_Ratio: prediction.loan_to_income_ratio,
+          Credit_Score: prediction.credit_score,
+          Credit_History_Length: prediction.credit_history_length,
+          Number_of_Existing_Loans: prediction.number_of_existing_loans,
+          Total_Credit_Limit: prediction.total_credit_limit,
+          Credit_Utilization_Rate: prediction.credit_utilization_rate,
+          Savings_Account_Balance: prediction.savings_account_balance,
+          Checking_Account_Balance: prediction.checking_account_balance,
+          Total_Assets: prediction.total_assets,
+          Net_Worth: prediction.net_worth,
+          Number_of_Late_Payments: prediction.number_of_late_payments,
+          Worst_Delinquency_Status: prediction.worst_delinquency_status,
+          Months_since_Last_Delinquency: prediction.months_since_last_delinquency,
+          Number_of_Credit_Inquiries: prediction.number_of_credit_inquiries,
+          Number_of_Open_Credit_Lines: prediction.number_of_open_credit_lines,
+          Number_of_Derogatory_Records: prediction.number_of_derogatory_records,
+          Bankruptcy_Flag: prediction.bankruptcy_flag,
+          Credit_Mix: prediction.credit_mix,
+          Loan_Amount_Requested: prediction.loan_amount_requested,
+          Loan_Term_Months: prediction.loan_term_months,
+          Loan_Purpose: prediction.loan_purpose,
+          Payment_to_Income_Ratio: prediction.payment_to_income_ratio,
+          Collateral_Type: prediction.collateral_type,
+          Collateral_Value: prediction.collateral_value,
+          Transaction_Amount: prediction.transaction_amount,
+          Transaction_Frequency: prediction.transaction_frequency,
+          Days_since_Last_Transaction: prediction.days_since_last_transaction,
+          Avg_Probability_of_Default: prediction.avg_probability_of_default,
+          Avg_Risk_Weighted_Assets: prediction.avg_risk_weighted_assets,
+          DPD_Trigger_Count: prediction.dpd_trigger_count,
+          Bankruptcy_Trigger_Flag: prediction.bankruptcy_trigger_flag,
+          Cash_Flow_Volatility: prediction.cash_flow_volatility,
+          Seasonal_Spending_Pattern: prediction.seasonal_spending_pattern
+        };
+      } else {
+        // Fallback to localStorage
+        const storedPayload = localStorage.getItem("lastPredictionInput");
+        if (!storedPayload) {
+          setError("No prediction data available. Please make a prediction first or select from stored predictions.");
+          setLoading(false);
+          return;
+        }
+        payload = JSON.parse(storedPayload);
       }
 
-      const response = await fetch("https://be-project-xak5.onrender.com/explain", {
+      const response = await fetch(`${API_URL}/explain`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: storedPayload,
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -63,7 +158,7 @@ export default function Explainability() {
       setResult(data);
     } catch (err: any) {
       console.error("Explainability Error:", err);
-      setError(err.message || "Failed to load explainability report. Make sure the backend is running on port 10000.");
+      setError(err.message || "Failed to load explainability report.");
     }
     
     setLoading(false);
@@ -140,6 +235,49 @@ export default function Explainability() {
           Understand how your credit score was calculated using advanced AI explainability techniques
         </p>
       </div>
+
+      {/* Stored Predictions Selector */}
+      <Card className="p-6 mb-8 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+        <div className="flex items-start gap-4">
+          <Database className="h-6 w-6 text-purple-600 flex-shrink-0 mt-1" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-lg mb-2">Select Stored Prediction</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose from your previous predictions saved in the database or use the most recent prediction from the form.
+            </p>
+            
+            {loadingPredictions ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading predictions...
+              </div>
+            ) : storedPredictions.length > 0 ? (
+              <Select value={selectedPredictionId || ''} onValueChange={setSelectedPredictionId}>
+                <SelectTrigger className="w-full bg-white">
+                  <SelectValue placeholder="Select a prediction" />
+                </SelectTrigger>
+                <SelectContent>
+                  {storedPredictions.map((pred) => (
+                    <SelectItem key={pred.id} value={pred.id}>
+                      {pred.prediction_type === 'batch' ? '🗂️ Batch' : '📄 Single'} - 
+                      Score: {pred.prediction_score} - 
+                      {pred.risk_level} - 
+                      {new Date(pred.created_at).toLocaleDateString()} {new Date(pred.created_at).toLocaleTimeString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Alert className="bg-white">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No stored predictions found. Make a prediction from the Predict or Upload page first.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Info Card */}
       <Card className="p-5 mb-8 bg-blue-50 border-blue-200">
